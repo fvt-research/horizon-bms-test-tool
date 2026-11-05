@@ -1,0 +1,33 @@
+diff --git a/include/dbcppp/AttributeDefinition.h b/include/dbcppp/AttributeDefinition.h
+--- a/include/dbcppp/AttributeDefinition.h
++++ b/include/dbcppp/AttributeDefinition.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
+ #include <cstddef>
++#include <cstdint>
+ #include <string>
+ #include <vector>
+diff --git a/include/dbcppp/ValueEncodingDescription.h b/include/dbcppp/ValueEncodingDescription.h
+--- a/include/dbcppp/ValueEncodingDescription.h
++++ b/include/dbcppp/ValueEncodingDescription.h
+@@ -2,5 +2,6 @@
+ #pragma once
+ 
++#include <cstdint>
+ #include <string>
+ #include <memory>
+ 
+diff --git a/src/Helper.h b/src/Helper.h
+--- a/src/Helper.h
++++ b/src/Helper.h
+@@ -11,6 +11,9 @@
+ #   include <stdlib.h>
+ #   define bswap_32(x) _byteswap_ulong(x)
+ #   define bswap_64(x) _byteswap_uint64(x)
++#elif defined(__MINGW32__)
++#   define bswap_32(x) __builtin_bswap32(x)
++#   define bswap_64(x) __builtin_bswap64(x)
+ #elif defined(__APPLE__)
+     // Mac OS X / Darwin features
+ #   include <libkern/OSByteOrder.h>

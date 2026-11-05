@@ -4,9 +4,9 @@ project(BMUSimulator LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# ── PCAN-Basic SDK (optional) ───────────────────────────────────────────────
+# ── PCAN-Basic SDK (required) ───────────────────────────────────────────────
 # Download from https://www.peak-system.com/PCAN-Basic.239.0.html
-# Extract the ZIP and set PCAN_SDK_DIR to the root folder (contains Include/ and Win64/).
+# Extract the ZIP and set PCAN_SDK_DIR to the root folder (contains Include/ and x64/).
 set(PCAN_SDK_DIR "" CACHE PATH "Path to PCAN-Basic SDK root (must contain Include/PCANBasic.h)")
 
 # ── ImGui (Win32 + DirectX 11 backend, docking branch) ──────────────────────
@@ -51,6 +51,7 @@ macro(add_library name)
     endif()
 endmacro()
 
+include(cmake/PatchDbcppp.cmake)
 add_subdirectory(third_party/dbcppp)
 
 # Define DBCPPP_EXPORT so that DBCPPP_API expands to dllexport rather than
