@@ -41,13 +41,15 @@ git clone --branch master --recurse-submodules \
 cd horizon-bms-test-tool
 cmake --preset windows-Release -DPCAN_SDK_DIR="C:/path/to/PCAN-Basic"
 cmake --build --preset windows-Release -j4
-./build/windows/Release/BMUSimulator.exe
+cd build/windows/Release
+./BMUSimulator.exe
 ```
 
 Replace the SDK path with your extraction location. The preset's MinGW
 Makefiles generator works with UCRT64's GCC. CMake generates the PCAN import
 library with `gendef`/`dlltool` and copies the DLL and font beside the executable.
-Launch from the repository root so the parameter panel can find its EDS.
+Launch from the executable directory so the relative font path resolves.
+The parameter panel searches ancestor directories and finds the repository's EDS.
 Launching from UCRT64 also supplies the compiler runtime DLLs through `PATH`.
 
 The pinned dbcppp dependency needs explicit `<cstdint>` includes and a MinGW
