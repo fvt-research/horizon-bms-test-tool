@@ -1,7 +1,9 @@
 #pragma once
 
 #include "can/CanBus.h"
+#include "can/CyclicCanSender.h"
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -20,10 +22,12 @@ class SystemPanel
     void setCanBus(CanBus *bus);
     void pushFrame(const DecodedFrame &frame);
     void render();
+    bool transmitFailed() const;
 
   private:
     void findMessages();
-    void transmit();
+    bool encodeCommand(CanFrame &frame) const;
+    void updateCyclicSender();
     void renderCommands();
     void renderStates();
     void renderControlMessageValues();
@@ -41,6 +45,7 @@ class SystemPanel
 
     const DbcModel *dbc_ = nullptr;
     CanBus *bus_ = nullptr;
+    std::unique_ptr<CyclicCanSender> cyclicSender_;
 
     // ── TX: system_commands ───────────────────────────────────────────────
     uint32_t cmdId_ = 0;
@@ -53,7 +58,7 @@ class SystemPanel
 
     bool cyclicEnabled_ = false;
     float cycleMs_ = 100.0f;
-    double lastSentMs_ = 0.0;
+    bool commandError_ = false;
 
     // ── RX: overview signals ──────────────────────────────────────────────
     struct LiveVal
