@@ -127,21 +127,17 @@ choosing how to integrate it into this C++17 application; do not assume sol2
 is required. Preserve Gigadoot compatibility where practical, while adding
 HIL-specific actions, observations, test results and cleanup.
 
-An initial integration prototype pins Gigadoot as a submodule and builds its
-unchanged Lua engine and dispatcher as a separate CMake target in this
-repository. A focused test exercises lifecycle and observation-triggered
-actions. The target still exposes Gigadoot-specific types; it is not yet a
-generic library extracted into Gigadoot, a GUI feature or a HIL test runner.
-The existing engine opens Lua's standard libraries, so scripts must be trusted
-until an appropriate execution policy is implemented and verified.
+A separate local prototype uses Gigadoot's unchanged Lua engine and dispatcher,
+with action execution and scheduling in this repository. That prototype is
+not part of this increment. Gigadoot's wxWidgets implementation remains
+unchanged; sharing execution code upstream can be considered later. Gigadoot
+opens Lua's standard libraries, so scripts must be trusted until an
+appropriate execution policy is implemented and verified.
 
-For the shared infrastructure, investigate moving Gigadoot's action execution,
-delay queue and lifecycle control out of its wxWidgets UI into reusable
-Gigadoot code. Adapt its message-oriented actions and observations to BMS CAN,
-RTT and HIL devices, and add initial-state checks, expected reactions, results
-and cleanup. The HIL runtime remains the sole owner of physical devices.
-Gigadoot currently implements message-oriented log/send actions; those HIL
-features and a GUI-independent action runner are not yet present.
+Adapt message-oriented actions and observations to BMS CAN, RTT and HIL
+devices, and add initial-state checks, expected reactions, results and cleanup.
+The HIL runtime remains the sole owner of physical devices. Those HIL features
+and a complete test runner are not yet present.
 
 Each test should express:
 
@@ -201,18 +197,17 @@ commissioning any physical control.
    combined changes and PR #1 build and launch on Windows; the panel-switch
    comparison and physical CAN behavior remain to be verified. PR #1 is not
    included in the implementation commit.
-2. **Share Gigadoot's action infrastructure.** Build on the pinned submodule
-   and Lua dispatcher prototype. Investigate moving Gigadoot's action
-   execution, delay queue and lifecycle out of the wxWidgets UI into a
-   reusable component. Demonstrate start, observation-triggered action, stop
-   and cancellation with a small fake adapter, preserving existing Gigadoot
-   behavior. The current prototype does not yet execute actions.
+2. **Integrate Gigadoot's action infrastructure locally.** Build on the Lua
+   dispatcher with a GUI-independent session in this repository. Demonstrate
+   start, observation-triggered action, stop and cancellation with a small fake
+   adapter. Gigadoot's UI remains unchanged. This work is separate from the
+   first increment.
 3. **Add one manual HIL control.** Connect one reviewed device operation to
    the application runtime and GUI, with its reported state and errors.
    Exercise invalid requests and communication failures using fixtures, then
    commission it on the attended bench. Select the device and operation after
    confirming the installed wiring.
-4. **Run one named Lua test locally.** Use Gigadoot's shared infrastructure
+4. **Run one named Lua test locally.** Use the Gigadoot-backed infrastructure
    and the same runtime to prepare and verify an initial state, perform an
    action, check a reaction and clean up. Submit the approved test by name
    through a common request path. Check success, failed prerequisites,
