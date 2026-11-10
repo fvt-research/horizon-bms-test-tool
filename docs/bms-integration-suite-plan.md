@@ -12,10 +12,10 @@ support focused checks, while the real HIL will validate physical behavior.
 A shared HIL runtime will own the devices and expose an actions-and-reactions
 interface to the GUI and scripts. Tests will establish and verify initial
 conditions, apply physical stimuli, observe BMS responses through CAN and RTT
-where supported, and record results and cleanup outcomes. The simulator's Lua/sol2 scenario
-system provides useful inspiration, but physical HIL behavior and timing must
-be verified independently. The final UI, hardware mappings, observation
-contracts, and many implementation details remain open.
+where supported, and record results and cleanup outcomes. The simulator's
+Lua/sol2 scenario system provides useful inspiration, but physical HIL behavior
+and timing must be verified independently. The final UI, hardware mappings,
+observation contracts, and many implementation details remain open.
 
 ## Goals and boundaries
 
@@ -112,27 +112,15 @@ interface.
 
 ## Lua tests: initial state, action, reaction
 
-Use Gigadoot as the foundation for the scripting and action infrastructure, not
-only as a Lua interpreter. Its lifecycle and message handlers return actions
-to C++; its application currently executes and schedules those actions. Reuse
-and extend that pipeline for HIL stimuli and BMS observations instead of
-building a competing test scripting system. The BMS simulator's shared action
-vocabulary is a complementary reference. Confirm reuse permissions and
-dependency ownership before moving or sharing code.
+Use Lua directly with sol2 as the C++ binding, following the simulator's
+approach. Gigadoot is not a scripting dependency; its messaging remains a
+possible future transport for approved test requests.
 
-The current Gigadoot dispatcher uses the Lua C API, Gigadoot-specific traffic
-and send types, and a core library with broader dependencies and a C++20
-requirement. Evaluate extraction or adaptation against those boundaries before
-choosing how to integrate it into this C++17 application; do not assume sol2
-is required. Preserve Gigadoot compatibility where practical, while adding
-HIL-specific actions, observations, test results and cleanup.
-
-A separate local prototype uses Gigadoot's unchanged Lua engine and dispatcher,
-with action execution and scheduling in this repository. That prototype is
-not part of this increment. Gigadoot's wxWidgets implementation remains
-unchanged; sharing execution code upstream can be considered later. Gigadoot
-opens Lua's standard libraries, so scripts must be trusted until an
-appropriate execution policy is implemented and verified.
+The local `LuaScriptSession` prototype executes log/send actions and manages
+delayed actions, pause, stop and cancellation. A fake adapter exercises the
+lifecycle without HIL hardware. It is not connected to the GUI or physical
+devices. Scripts must be trusted: the prototype is not sandboxed and does not
+enforce execution time limits.
 
 Adapt message-oriented actions and observations to BMS CAN, RTT and HIL
 devices, and add initial-state checks, expected reactions, results and cleanup.
@@ -197,17 +185,18 @@ commissioning any physical control.
    combined changes and PR #1 build and launch on Windows; the panel-switch
    comparison and physical CAN behavior remain to be verified. PR #1 is not
    included in the implementation commit.
-2. **Integrate Gigadoot's action infrastructure locally.** Build on the Lua
-   dispatcher with a GUI-independent session in this repository. Demonstrate
-   start, observation-triggered action, stop and cancellation with a small fake
-   adapter. Gigadoot's UI remains unchanged. This work is separate from the
-   first increment.
+2. **Add Lua action infrastructure.** Use Lua and sol2 in a GUI-independent
+   session in this repository, with delayed sends, pause, stop and cancellation.
+   Demonstrate start, observation-triggered action, stop and cancellation with
+   a small fake adapter.
+   **Status:** Implemented as a local prototype; fake-adapter tests pass on
+   Linux. Windows validation, GUI and HIL adapters remain.
 3. **Add one manual HIL control.** Connect one reviewed device operation to
    the application runtime and GUI, with its reported state and errors.
    Exercise invalid requests and communication failures using fixtures, then
    commission it on the attended bench. Select the device and operation after
    confirming the installed wiring.
-4. **Run one named Lua test locally.** Use the Gigadoot-backed infrastructure
+4. **Run one named Lua test locally.** Use the Lua action infrastructure
    and the same runtime to prepare and verify an initial state, perform an
    action, check a reaction and clean up. Submit the approved test by name
    through a common request path. Check success, failed prerequisites,
@@ -216,9 +205,9 @@ commissioning any physical control.
    sequentially and inspect progress while switching panels. Record per-run
    actions, observations, results and available CAN/RTT traffic. Verify manual
    control arbitration, cancellation, duplicate requests and recording errors.
-6. **Accept external test-request messages.** Add a message adapter, using
-   Gigadoot infrastructure where appropriate, that submits named approved tests
-   to the same queue and returns acceptance, progress and terminal results.
+6. **Accept external test-request messages.** Add a message adapter that
+   submits named approved tests to the same queue and returns acceptance,
+   progress and terminal results. Evaluate Gigadoot as a transport at that time.
    Validate request IDs, profiles and permissions; protect non-local access.
    Do not accept arbitrary remote Lua. The transport and schema remain to be
    agreed.
@@ -255,8 +244,7 @@ until verified against the actual board.
 ## Decisions still to make
 
 - Final UI layout, repository ownership, packaging and supported platforms.
-- Shared Gigadoot component boundary, dependency ownership, reuse permissions,
-  C++ standard, Lua version, script API, test discovery and metadata.
+- Lua version, script API, test discovery and metadata.
 - Initial-state profiles, relay-to-fault mappings, physical readback and
   acceptable cleanup behavior.
 - Firmware/DBC compatibility, supported CAN parameter operations and RTT

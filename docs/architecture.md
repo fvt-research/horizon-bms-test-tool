@@ -48,7 +48,7 @@ graph TD
 sequenceDiagram
     participant HW as PCAN Hardware
     participant RX as CAN RX Thread
-    participant Buf as Ring Buffer (mutex)
+    participant Buf as RX Queue (mutex)
     participant UI as UI Thread (main)
 
     loop Every CAN frame
@@ -64,13 +64,18 @@ sequenceDiagram
     end
 ```
 
-- The **CAN RX thread** runs independently of the UI, blocking on `CAN_Read` from PCAN-Basic.
-- Decoded signal values are pushed into a **thread-safe ring buffer** (mutex-guarded).
-- The **UI thread** drains the buffer at the start of each render frame to keep display data fresh without blocking rendering.
+- The **CAN RX thread** runs independently of the UI, polling the CAN interface
+  and sleeping briefly when no frame is available.
+- Decoded frames are pushed into a **mutex-guarded queue**.
+- The **UI thread** drains the queue at the start of each render frame.
 - System command cyclic transmission runs on a separate worker, independent
   of the selected tab or render loop. The UI updates its encoded command and
   interval; disconnect stops the worker before closing the CAN interface.
   A failed transmission stops cyclic sending and is displayed in the menu bar.
+- The optional `LuaScriptSession` prototype uses Lua and sol2 with local send
+  and log callbacks. Its caller owns the thread, calls `runDue` for delayed
+  actions and must serialize calls; callbacks must not reenter the session.
+  The session has no timer thread and is not connected to the GUI or HIL.
 
 ---
 
