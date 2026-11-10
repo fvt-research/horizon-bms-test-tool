@@ -43,7 +43,7 @@ public:
     /// Drain all decoded frames buffered since the last call (UI thread only).
     std::vector<DecodedFrame> drainRxFrames();
 
-    const char* lastError() const;
+    std::string lastError() const;
 
 private:
     void rxLoop();
@@ -51,6 +51,7 @@ private:
     std::unique_ptr<ICanInterface> iface_;
     const DbcModel*                dbc_     = nullptr;
 
+    mutable std::mutex       ifaceMutex_;
     std::thread              rxThread_;
     std::atomic<bool>        running_  { false };
 

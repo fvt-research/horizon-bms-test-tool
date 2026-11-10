@@ -142,12 +142,21 @@ void App::renderMenuBar()
     const char *busLabel =
         (bus_ && bus_->isOpen()) ? "[CAN connected]" : "[CAN disconnected]";
     const char *dbcLabel = "bms_main_v1.dbc";
+    const bool transmitFailed = systemPanel_.transmitFailed();
 
     float rightWidth = ImGui::CalcTextSize(busLabel).x +
                        ImGui::CalcTextSize("  ").x +
                        ImGui::CalcTextSize(dbcLabel).x + 16.0f;
+    if (transmitFailed)
+        rightWidth += ImGui::CalcTextSize("CAN TX failed").x +
+                      ImGui::GetStyle().ItemSpacing.x;
     ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - rightWidth);
     ImGui::TextDisabled("%s  %s", busLabel, dbcLabel);
+    if (transmitFailed)
+    {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "CAN TX failed");
+    }
 
     ImGui::EndMenuBar();
 }
@@ -302,10 +311,6 @@ void App::connectCan()
     bus_ = std::make_unique<CanBus>(std::move(iface));
     if (dbc_.isLoaded())
         bus_->setDbc(&dbc_);
-    systemPanel_.setCanBus(bus_.get());
-    faultPanel_.setCanBus(bus_.get());
-    parametersPanel_.setCanBus(bus_.get());
-
     uint32_t channel = 0;
     if (ifaceType_ == 1 && !pcanDevices_.empty())
         channel = static_cast<uint32_t>(pcanDevices_[pcanDeviceIdx_].handle);
@@ -314,19 +319,20 @@ void App::connectCan()
     if (!bus_->open(channel, baud))
     {
         bus_.reset();
-        systemPanel_.setCanBus(nullptr);
-        faultPanel_.setCanBus(nullptr);
-        parametersPanel_.setCanBus(nullptr);
+        return;
     }
+    systemPanel_.setCanBus(bus_.get());
+    faultPanel_.setCanBus(bus_.get());
+    parametersPanel_.setCanBus(bus_.get());
 }
 
 void App::disconnectCan()
 {
     if (bus_)
     {
+        systemPanel_.setCanBus(nullptr);
         bus_->close();
         bus_.reset();
-        systemPanel_.setCanBus(nullptr);
         faultPanel_.setCanBus(nullptr);
         parametersPanel_.setCanBus(nullptr);
     }

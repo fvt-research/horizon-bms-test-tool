@@ -67,6 +67,10 @@ sequenceDiagram
 - The **CAN RX thread** runs independently of the UI, blocking on `CAN_Read` from PCAN-Basic.
 - Decoded signal values are pushed into a **thread-safe ring buffer** (mutex-guarded).
 - The **UI thread** drains the buffer at the start of each render frame to keep display data fresh without blocking rendering.
+- System command cyclic transmission runs on a separate worker, independent
+  of the selected tab or render loop. The UI updates its encoded command and
+  interval; disconnect stops the worker before closing the CAN interface.
+  A failed transmission stops cyclic sending and is displayed in the menu bar.
 
 ---
 

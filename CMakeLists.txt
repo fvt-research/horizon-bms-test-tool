@@ -123,6 +123,7 @@ set(APP_SOURCES
     src/main.cpp
     src/App.cpp
     src/can/CanBus.cpp
+    src/can/CyclicCanSender.cpp
     src/can/VirtualInterface.cpp
     src/dbc/DbcModel.cpp
     src/ui/BusMonitorPanel.cpp

@@ -14,8 +14,11 @@ CanBus::~CanBus()
 
 bool CanBus::open(uint32_t channel, uint32_t baudrate)
 {
-    if (!iface_->open(channel, baudrate))
-        return false;
+    {
+        std::lock_guard<std::mutex> lock(ifaceMutex_);
+        if (!iface_->open(channel, baudrate))
+            return false;
+    }
     running_ = true;
     rxThread_ = std::thread(&CanBus::rxLoop, this);
     return true;
@@ -26,23 +29,27 @@ void CanBus::close()
     running_ = false;
     if (rxThread_.joinable())
         rxThread_.join();
+    std::lock_guard<std::mutex> lock(ifaceMutex_);
     iface_->close();
 }
 
 bool CanBus::isOpen() const
 {
+    std::lock_guard<std::mutex> lock(ifaceMutex_);
     return iface_->isOpen();
 }
 bool CanBus::send(const CanFrame &frame)
 {
+    std::lock_guard<std::mutex> lock(ifaceMutex_);
     return iface_->send(frame);
 }
 void CanBus::setDbc(const DbcModel *dbc)
 {
     dbc_ = dbc;
 }
-const char *CanBus::lastError() const
+std::string CanBus::lastError() const
 {
+    std::lock_guard<std::mutex> lock(ifaceMutex_);
     return iface_->lastError();
 }
 
@@ -64,7 +71,12 @@ void CanBus::rxLoop()
     while (running_)
     {
         CanFrame raw;
-        if (iface_->receive(raw))
+        bool received;
+        {
+            std::lock_guard<std::mutex> lock(ifaceMutex_);
+            received = iface_->receive(raw);
+        }
+        if (received)
         {
             DecodedFrame df;
             df.raw = raw;

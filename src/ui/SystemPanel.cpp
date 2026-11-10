@@ -5,13 +5,9 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
-
-static double spNowMs()
-{
-    return ImGui::GetTime() * 1000.0;
-}
 
 // -- Public API ---------------------------------------------------------------
 
@@ -19,11 +15,25 @@ void SystemPanel::setDbc(const DbcModel *dbc)
 {
     dbc_ = dbc;
     findMessages();
+    updateCyclicSender();
 }
 
 void SystemPanel::setCanBus(CanBus *bus)
 {
+    cyclicSender_.reset();
     bus_ = bus;
+    commandError_ = false;
+    if (bus_)
+    {
+        cyclicSender_ = std::make_unique<CyclicCanSender>(
+            [bus](const CanFrame &frame) { return bus->send(frame); });
+        updateCyclicSender();
+    }
+}
+
+bool SystemPanel::transmitFailed() const
+{
+    return commandError_ || (cyclicSender_ && cyclicSender_->failed());
 }
 
 void SystemPanel::pushFrame(const DecodedFrame &frame)
@@ -44,17 +54,6 @@ void SystemPanel::pushFrame(const DecodedFrame &frame)
 
 void SystemPanel::render()
 {
-    // Cyclic TX check
-    if (cyclicEnabled_ && bus_ && bus_->isOpen())
-    {
-        const double now = spNowMs();
-        if (now - lastSentMs_ >= static_cast<double>(cycleMs_))
-        {
-            transmit();
-            lastSentMs_ = now;
-        }
-    }
-
     if (ImGui::BeginTabBar("##SystemTabs"))
     {
         if (ImGui::BeginTabItem("Control"))
@@ -188,10 +187,10 @@ void SystemPanel::findMessages()
     }
 }
 
-void SystemPanel::transmit()
+bool SystemPanel::encodeCommand(CanFrame &frame) const
 {
-    if (!dbc_ || !bus_ || !cmdFound_)
-        return;
+    if (!dbc_ || !cmdFound_)
+        return false;
 
     std::vector<std::pair<std::string, double>> vals = {
         {"operation_req", operationReq_ ? 1.0 : 0.0},
@@ -200,9 +199,26 @@ void SystemPanel::transmit()
         {"external_bus_disconnected", externalBusDisconnected_ ? 1.0 : 0.0},
     };
 
+    return dbc_->encode(cmdId_, vals, frame);
+}
+
+void SystemPanel::updateCyclicSender()
+{
+    if (!cyclicSender_)
+        return;
+
     CanFrame frame;
-    if (dbc_->encode(cmdId_, vals, frame))
-        bus_->send(frame);
+    if (!encodeCommand(frame))
+    {
+        commandError_ = true;
+        cyclicSender_->configure(frame, std::chrono::milliseconds{100}, false);
+        return;
+    }
+    commandError_ = false;
+    cyclicSender_->configure(
+        frame,
+        std::chrono::milliseconds{static_cast<int>(cycleMs_)},
+        cyclicEnabled_);
 }
 
 void SystemPanel::renderCommands()
@@ -221,25 +237,36 @@ void SystemPanel::renderCommands()
     if (ImGui::BeginTable("##CmdVarsTable", 2, kCmdTableFlags))
     {
         ImGui::TableNextColumn();
-        ImGui::Checkbox("operation_req", &operationReq_);
-        ImGui::Checkbox("enable_imd", &enableImd_);
+        bool changed = ImGui::Checkbox("operation_req", &operationReq_);
+        changed |= ImGui::Checkbox("enable_imd", &enableImd_);
         ImGui::TableNextColumn();
-        ImGui::Checkbox("service_request", &serviceRequest_);
-        ImGui::Checkbox("external_bus_disconnected", &externalBusDisconnected_);
+        changed |= ImGui::Checkbox("service_request", &serviceRequest_);
+        changed |= ImGui::Checkbox(
+            "external_bus_disconnected", &externalBusDisconnected_);
+        if (changed)
+            updateCyclicSender();
         ImGui::EndTable();
     }
 
     ImGui::Separator();
 
-    ImGui::Checkbox("Cyclic TX", &cyclicEnabled_);
+    bool changed = ImGui::Checkbox("Cyclic TX", &cyclicEnabled_);
     if (cyclicEnabled_)
     {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(80.0f);
-        ImGui::InputFloat("ms##cyc", &cycleMs_, 10.0f, 100.0f, "%.0f");
-        if (cycleMs_ < 1.0f)
-            cycleMs_ = 1.0f;
+        changed |=
+            ImGui::InputFloat("ms##cyc", &cycleMs_, 10.0f, 100.0f, "%.0f");
+        if (!std::isfinite(cycleMs_))
+            cycleMs_ = 100.0f;
+        cycleMs_ = std::clamp(cycleMs_, 1.0f, 86400000.0f);
     }
+    if (changed)
+        updateCyclicSender();
+    if (cyclicSender_ && cyclicSender_->failed())
+        ImGui::TextColored(
+            ImVec4(1, 0.4f, 0.4f, 1),
+            "CAN transmit failed. Disable and re-enable cyclic TX to retry.");
 
     ImGui::Spacing();
     const bool canSend = bus_ && bus_->isOpen();
@@ -247,8 +274,9 @@ void SystemPanel::renderCommands()
         ImGui::BeginDisabled();
     if (ImGui::Button("Send Once", ImVec2(100.0f, 0.0f)))
     {
-        transmit();
-        lastSentMs_ = spNowMs();
+        CanFrame frame;
+        commandError_ = !encodeCommand(frame) || !cyclicSender_ ||
+                        !cyclicSender_->sendOnce(frame);
     }
     if (!canSend)
     {
