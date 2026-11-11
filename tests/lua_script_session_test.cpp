@@ -23,8 +23,9 @@ void requireSuccess(const LuaScriptSession::Result &result)
         throw std::runtime_error(result.error);
 }
 
-struct FakeAdapter
+class FakeAdapter
 {
+  public:
     std::vector<LuaScriptSession::Message> sent;
     std::vector<std::string> logs;
 

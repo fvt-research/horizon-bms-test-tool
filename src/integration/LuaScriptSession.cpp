@@ -9,8 +9,9 @@
 #include <type_traits>
 #include <utility>
 
-struct LuaScriptSession::LuaRuntime
+class LuaScriptSession::LuaRuntime
 {
+  public:
     sol::state lua;
 
     Result parseAction(const sol::object &object, Action &action)

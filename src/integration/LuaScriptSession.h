@@ -64,7 +64,7 @@ class LuaScriptSession
     std::optional<TimePoint> nextDue() const;
 
   private:
-    struct LuaRuntime;
+    class LuaRuntime;
 
     struct Action
     {
