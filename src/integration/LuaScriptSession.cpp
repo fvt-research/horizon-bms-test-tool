@@ -309,7 +309,20 @@ LuaScriptSession::Result LuaScriptSession::process(
     for (const auto &action : actions)
     {
         if (action.isLog)
-            log_(action.text);
+        {
+            try
+            {
+                log_(action.text);
+            }
+            catch (const std::exception &error)
+            {
+                return fail(std::string("Log callback threw: ") + error.what());
+            }
+            catch (...)
+            {
+                return fail("Log callback threw a non-standard exception");
+            }
+        }
         else if (action.delayMs > 0)
             pending_.push_back(
                 {{action.text, action.fields}, now + std::chrono::milliseconds(action.delayMs)});
@@ -325,7 +338,19 @@ LuaScriptSession::Result LuaScriptSession::process(
 
 LuaScriptSession::Result LuaScriptSession::sendAction(const Message &message)
 {
-    const Result result = send_(message);
+    Result result;
+    try
+    {
+        result = send_(message);
+    }
+    catch (const std::exception &error)
+    {
+        return fail(std::string("Send callback threw: ") + error.what());
+    }
+    catch (...)
+    {
+        return fail("Send callback threw a non-standard exception");
+    }
     if (!result.success)
         return fail("Send failed: " + result.error);
     return {true, {}};

@@ -189,6 +189,52 @@ void delayedFailure(const char *script)
     require(session.pendingCount() == 0, "failure retained pending actions");
 }
 
+void callbackExceptionsFailSession(const char *script)
+{
+    for (const bool nonStandard : {false, true})
+    {
+        for (const std::string kind : {"immediate send", "delayed send", "log"})
+        {
+            auto throwException = [&]() {
+                if (nonStandard)
+                    throw 7;
+                throw std::runtime_error("callback error");
+            };
+            LuaScriptSession session(
+                [&](const LuaScriptSession::Message &message) {
+                    if ((kind == "immediate send" && message.type == "send.failure") ||
+                        (kind == "delayed send" && message.type == "start.delayed"))
+                        throwException();
+                    return LuaScriptSession::Result{true, {}};
+                },
+                [&](const std::string &message) {
+                    if (kind == "log" && message == "raw list")
+                        throwException();
+                });
+            const LuaScriptSession::TimePoint start{};
+            requireSuccess(session.load(script));
+            requireSuccess(session.start(start));
+            require(session.pendingCount() == 1, "expected pending action");
+
+            const auto result = kind == "delayed send"
+                                    ? session.runDue(start + 50ms)
+                                    : session.observe(observation(
+                                          kind == "log" ? "bms.metatable" : "bms.failure"),
+                                                      start);
+            require(!result.success, "callback exception not reported");
+            require(result.error.find(nonStandard ? "non-standard exception" : "callback error") !=
+                        std::string::npos,
+                    "callback exception detail missing");
+            require(result.error.find(kind == "log" ? "Log callback" : "Send callback") !=
+                        std::string::npos,
+                    "callback exception source missing");
+            require(session.state() == LuaScriptSession::State::failed,
+                    "callback exception did not fail session");
+            require(session.pendingCount() == 0, "callback exception retained pending actions");
+        }
+    }
+}
+
 void rejectsInvalidActionListBeforeSending(const char *script)
 {
     FakeAdapter adapter;
@@ -260,6 +306,7 @@ int main(int argc, char **argv)
         dueActionsPreserveOrderAndFutureActions(argv[1]);
         failuresAndRecovery(argv[1], argv[2]);
         delayedFailure(argv[1]);
+        callbackExceptionsFailSession(argv[1]);
         rejectsInvalidActionListBeforeSending(argv[1]);
         reportsMalformedActionsAndScriptErrors(argv[1]);
         rejectsMissingCallbacks();

@@ -110,7 +110,8 @@ Send fields currently support booleans, numbers and strings. The caller
 supplies observations and the clock, executes due actions and handles errors;
 this is an experimental interface, not a physical HIL API. Stopping cancels
 pending run actions before invoking `on_stop`; delayed stop actions must still
-be driven by the caller. Pausing does not move action deadlines.
+be driven by the caller. Pausing does not move action deadlines. If a send or
+log callback throws, the session reports the error and cancels pending actions.
 
 ---
 
