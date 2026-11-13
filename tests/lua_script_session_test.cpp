@@ -124,6 +124,29 @@ void overdueActionsRunInDeadlineOrder(const char *script)
     require(adapter.sent[2].type == "start.delayed", "later action ran early");
 }
 
+void dueActionsPreserveOrderAndFutureActions(const char *script)
+{
+    FakeAdapter adapter;
+    auto session = makeSession(adapter);
+    const LuaScriptSession::TimePoint start{};
+    requireSuccess(session.load(script));
+    requireSuccess(session.start(start));
+    auto first = observation("bms.status");
+    first.fields["label"] = std::string("first");
+    auto second = observation("bms.status");
+    second.fields["label"] = std::string("second");
+    requireSuccess(session.observe(first, start));
+    requireSuccess(session.observe(second, start));
+    requireSuccess(session.runDue(start + 25ms));
+    require(adapter.sent.size() == 3, "due actions missing");
+    require(std::get<std::string>(adapter.sent[1].fields.at("label")) == "first" &&
+                std::get<std::string>(adapter.sent[2].fields.at("label")) == "second",
+            "equal-deadline actions reordered");
+    require(session.pendingCount() == 1, "future action not retained");
+    requireSuccess(session.runDue(start + 50ms));
+    require(adapter.sent.back().type == "start.delayed", "future action missing");
+}
+
 void failuresAndRecovery(const char *script, const char *otherScript)
 {
     FakeAdapter adapter;
@@ -234,6 +257,7 @@ int main(int argc, char **argv)
         lifecycleAndCancellation(argv[1]);
         pauseAndResume(argv[1]);
         overdueActionsRunInDeadlineOrder(argv[1]);
+        dueActionsPreserveOrderAndFutureActions(argv[1]);
         failuresAndRecovery(argv[1], argv[2]);
         delayedFailure(argv[1]);
         rejectsInvalidActionListBeforeSending(argv[1]);

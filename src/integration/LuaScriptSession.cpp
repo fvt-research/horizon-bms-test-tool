@@ -230,19 +230,15 @@ LuaScriptSession::Result LuaScriptSession::runDue(TimePoint now)
             return left.due < right.due;
         });
     auto it = pending_.begin();
-    while (it != pending_.end())
+    while (it != pending_.end() && it->due <= now)
     {
-        if (it->due > now)
-        {
-            ++it;
-            continue;
-        }
         const Message message = std::move(it->message);
-        it = pending_.erase(it);
         const Result result = sendAction(message);
         if (!result.success)
             return result;
+        ++it;
     }
+    pending_.erase(pending_.begin(), it);
     if (state_ == State::stopping && pending_.empty())
         state_ = State::ready;
     return {true, {}};
