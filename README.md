@@ -65,6 +65,53 @@ configuration rather than silently building an unpatched dependency.
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Layer diagram, panel descriptions, threading model |
 | [docs/design-decisions.md](docs/design-decisions.md) | Library choices, build system, open decisions |
+| [docs/bms-integration-suite-plan.md](docs/bms-integration-suite-plan.md) | Incremental HIL integration plan |
+
+---
+
+## Hardware-free tests
+
+The focused C++ tests do not require the GUI, PCAN SDK, or HIL hardware:
+
+```sh
+cmake -S tests -B build/tests
+cmake --build build/tests
+ctest --test-dir build/tests --output-on-failure
+```
+
+To also test the experimental Lua session, provide a Lua 5.3+ development
+library. CMake fetches the pinned sol2 3.3.0 headers during configuration:
+
+```sh
+cmake -S tests -B build/tests-lua -DBMS_TEST_LUA=ON
+cmake --build build/tests-lua
+ctest --test-dir build/tests-lua --output-on-failure
+```
+
+For the Windows application, `BMS_ENABLE_LUA=ON` links the same experimental
+target. The session executes log/send actions through supplied callbacks and
+requires the caller to drive delayed actions. It does not yet expose scripting
+in the GUI or execute HIL actions. Use only trusted scripts; the prototype
+does not provide a sandbox or execution time limit.
+
+The prototype accepts optional `on_start()`, `on_message(message)` and
+`on_stop()` handlers. Each returns `nil`, one action, or a list of actions:
+
+```lua
+function on_message(message)
+    if message.type == "bms.status" and message.fields.fault_active then
+        return {action = "send", message_type = "test.reaction",
+                fields = {observed = true}, delay_ms = 25}
+    end
+end
+```
+
+Send fields currently support booleans, numbers and strings. The caller
+supplies observations and the clock, executes due actions and handles errors;
+this is an experimental interface, not a physical HIL API. Stopping cancels
+pending run actions before invoking `on_stop`; delayed stop actions must still
+be driven by the caller. Pausing does not move action deadlines. If a send or
+log callback throws, the session reports the error and cancels pending actions.
 
 ---
 
@@ -74,7 +121,7 @@ configuration rather than silently building an unpatched dependency.
 horizon-bms-bmu-sim-app/
 ├── docs/                  # Design documentation
 ├── src/                   # Application source
-├── third_party/           # Git submodules (ImGui, ImPlot, dbcppp, PCAN SDK)
+├── third_party/           # Git submodules (ImGui, ImPlot, dbcppp)
 ├── CMakeLists.txt
 └── README.md
 ```

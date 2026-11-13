@@ -5,7 +5,8 @@
 | Tool | Role |
 |---|---|
 | **CMake** | Project configuration and build system. |
-| **Git submodules (pinned commits)** | Dependency management. Each third-party library is a submodule pointing to a specific release tag/commit for fully reproducible builds. |
+| **Git submodules (pinned commits)** | Dependency management for ImGui, ImPlot and dbcppp. |
+| **CMake FetchContent** | Fetches pinned sol2 sources when the optional Lua session is enabled. |
 
 ---
 
@@ -25,9 +26,19 @@
 | Library | Submodule path | Role |
 |---|---|---|
 | **dbcppp** | `third_party/dbcppp` | Parses `.dbc` files — enumerates messages, signals, scaling, offset, min/max, value tables. |
-| **PCAN-Basic API** | `third_party/pcan` | CAN bus TX/RX via Peak PCAN hardware. Wrapped behind an abstract `ICanInterface` so alternative drivers can be added later. |
+| **PCAN-Basic API** | `PCAN_SDK_DIR` | CAN bus TX/RX via Peak PCAN hardware. Wrapped behind an abstract `ICanInterface` so alternative drivers can be added later. |
 
 The application currently embeds `bms_main_v1.dbc` at build time into a generated header, so startup does not depend on selecting a DBC file at runtime.
+
+### Scripting (experimental)
+
+| Library | Source | Role |
+|---|---|---|
+| **Lua 5.3+** | Locally installed development library | Executes trusted scripts. |
+| **sol2 3.3.0** | Pinned FetchContent revision | C++ binding for the Lua session. |
+
+The optional session is not connected to the GUI or HIL. Gigadoot is not a
+scripting dependency; its messaging may be evaluated separately later.
 
 ### Platform / Utility
 

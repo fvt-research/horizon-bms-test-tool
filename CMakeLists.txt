@@ -4,6 +4,8 @@ project(BMUSimulator LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BMS_ENABLE_LUA "Build the experimental Lua session" OFF)
+
 # ── PCAN-Basic SDK (required) ───────────────────────────────────────────────
 # Download from https://www.peak-system.com/PCAN-Basic.239.0.html
 # Extract the ZIP and set PCAN_SDK_DIR to the root folder (contains Include/ and x64/).
@@ -137,6 +139,11 @@ set(APP_SOURCES
 list(APPEND APP_SOURCES src/can/PcanInterface.cpp)
 
 add_executable(BMUSimulator WIN32 ${APP_SOURCES})
+
+if(BMS_ENABLE_LUA)
+    include(cmake/LuaSession.cmake)
+    target_link_libraries(BMUSimulator PRIVATE bms_lua_session)
+endif()
 
 target_include_directories(BMUSimulator PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
